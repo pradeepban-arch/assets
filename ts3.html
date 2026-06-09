@@ -1,0 +1,277 @@
+<html lang="en-us"><head><base href="https://cdn.jsdelivr.net/gh/mistirk/google@eebffdf79a14f6e01e153d5cd4bed23c432874fb/version/time-s3"><script id="gamedistribution-jssdk" src=""></script><script>
+(function(){
+  const SHIM_DEBUG = false;
+  const injectedDomain = "1091636168-atari-embeds.googleusercontent.com";
+  const injectedHref = "https://1091636168-atari-embeds.googleusercontent.com/embeds/16cb204cf3a9d4d223a0a3fd8b0eec5d/inner-frame-minified.html?jsh=m%3B%2F_%2Fscs%2Fabc-static%2F_%2Fjs%2Fk%3Dgapi.lb.en.PCvl17LujMs.O%2Fd%3D1%2Frs%3DAHpOoo-sAn5Asuf3MvShXCH_dsg8tE46Tw%2Fm%3D__features__";
+  const BASE_FOR_REL = "https://cdn.jsdelivr.net/gh/mistirk/google@eebffdf79a14f6e01e153d5cd4bed23c432874fb/version/time-s3";
+  function dbg(){ if(SHIM_DEBUG && console && console.log) console.log('[SHIM]', ...arguments); }
+  const AD_HOSTS = ['api.gamemonetize.com','gamemonetize.com','gamedistribution.com','ads.gamedistribution.com'];
+  function isAdHost(url){ try { return AD_HOSTS.some(h => url.indexOf(h) !== -1); } catch(e) { return false; } }
+  function absolutize(url){ try { new URL(url); return url; } catch(e){ try { return new URL(url, BASE_FOR_REL).href; } catch(e2){ return url; } } }
+  function patchDomainParamToUrl(u){ try { if (!(u instanceof URL)) u = new URL(u, location.href); const cur = u.searchParams.get('domain'); if(!cur || cur.trim()==='' || cur.toLowerCase().startsWith('blob')) { u.searchParams.set('domain', injectedDomain); dbg('patched domain ->', injectedDomain, 'for', u.toString()); } return u.toString(); } catch(e){ return u.toString ? u.toString() : u; } }
+  const _fetch = window.fetch;
+  window.fetch = function(input, init){ try { let urlStr = null; if (typeof input === 'string') urlStr = input; else if (input instanceof Request) urlStr = input.url; if (urlStr) { try { new URL(urlStr); } catch(e){ urlStr = absolutize(urlStr); } if (isAdHost(urlStr)) { const patched = patchDomainParamToUrl(new URL(urlStr, location.href)); input = (typeof input === 'string') ? patched : new Request(patched, input); } else { input = (typeof input === 'string') ? urlStr : new Request(urlStr, input); } } } catch(e){ dbg('fetch shim err', e); } return _fetch.call(this, input, init); };
+  try { const _open = XMLHttpRequest.prototype.open; XMLHttpRequest.prototype.open = function(method, url, async, user, pass){ try { let finalUrl = url; try { new URL(finalUrl); } catch(e){ finalUrl = absolutize(finalUrl); } if (isAdHost(finalUrl)) finalUrl = patchDomainParamToUrl(new URL(finalUrl, location.href)); return _open.call(this, method, finalUrl, async !== false, user, pass); } catch(e){ return _open.apply(this, arguments); } }; } catch(e){ dbg('xhr override failed', e); }
+  try { const imgDesc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src') || {}; if (imgDesc && typeof imgDesc.set === 'function') { Object.defineProperty(HTMLImageElement.prototype, 'src', { set: function(v){ try { if (v) { try { new URL(v); } catch(e){ v = absolutize(v); } if (isAdHost(v)) v = patchDomainParamToUrl(new URL(v, location.href)); } } catch(e){ dbg('img.src shim err', e); } return imgDesc.set.call(this, v); }, get: function(){ return imgDesc.get.call(this); }, configurable:true, enumerable:true }); } } catch(e){ dbg('img.src override failed', e); }
+  try { const scrDesc = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, 'src') || {}; if (scrDesc && typeof scrDesc.set === 'function') { Object.defineProperty(HTMLScriptElement.prototype, 'src', { set: function(v){ try { if (v) { try { new URL(v); } catch(e){ v = absolutize(v); } if (isAdHost(v)) v = patchDomainParamToUrl(new URL(v, location.href)); } } catch(e){ dbg('script.src shim err', e); } return scrDesc.set.call(this, v); }, get: function(){ return scrDesc.get.call(this); }, configurable:true, enumerable:true }); } } catch(e){ dbg('script.src override failed', e); }
+  try { if (navigator && typeof navigator.sendBeacon === 'function') { const _sb = navigator.sendBeacon; navigator.sendBeacon = function(url, data){ try { if (typeof url === 'string') { try { new URL(url); } catch(e){ url = absolutize(url); } if (isAdHost(url)) url = patchDomainParamToUrl(new URL(url, location.href)); } } catch(e){ dbg('sendBeacon shim err', e); } return _sb.call(this, url, data); }; } } catch(e){ dbg('sendBeacon override failed', e); }
+  try { Object.defineProperty(document, 'referrer', { get: function(){ return injectedHref; }, configurable:true }); } catch(e){ try { document.referrer = injectedHref; } catch(e){ dbg('referrer assign failed'); } }
+  (async function(){ const blobCache = new Map(); async function fetchArrayBuffer(url) { const r = await fetch(url, { credentials: 'same-origin' }); if (!r.ok) throw new Error('fetch failed ' + r.status); return await r.arrayBuffer(); } async function toBlobUrl(url) { if (blobCache.has(url)) return blobCache.get(url); try { const ab = await fetchArrayBuffer(url); const mime = /\.wasm$|\.unityweb$/.test(url) ? 'application/wasm' : 'application/octet-stream'; const b = URL.createObjectURL(new Blob([ab], { type: mime })); blobCache.set(url, b); return b; } catch(e){ dbg('toBlobUrl failed', e); return url; } } function makeAbsoluteIfNeeded(u) { try { new URL(u); return u; } catch(e){ try { return new URL(u, BASE_FOR_REL).href; } catch(e2){ return u; } } } async function mapUnityConfig(configOrUrl){ let cfg = null; if (typeof configOrUrl === 'string') { const abs = makeAbsoluteIfNeeded(configOrUrl); const r = await fetch(abs, { credentials: 'same-origin' }); cfg = await r.json(); } else { cfg = Object.assign({}, configOrUrl); } try { if (cfg.streamingAssetsUrl) { if (cfg.streamingAssetsUrl === "StreamingAssets" || cfg.streamingAssetsUrl === "StreamingAssets/") { cfg.streamingAssetsUrl = new URL('StreamingAssets/', BASE_FOR_REL).toString(); } else { cfg.streamingAssetsUrl = makeAbsoluteIfNeeded(cfg.streamingAssetsUrl); } } } catch(e){ dbg('streamingAssets fix fail', e); } const keys = ['dataUrl','frameworkUrl','codeUrl','memoryUrl','symbolsUrl','wasmCodeUrl','wasmFrameworkUrl']; for (const k of keys) { if (cfg[k] && typeof cfg[k] === 'string') { const abs = makeAbsoluteIfNeeded(cfg[k]); if (/\.wasm$|\.unityweb$|\.data$|\.mem$|\.symbols$/.test(abs)) { try { cfg[k] = await toBlobUrl(abs); } catch(e){ cfg[k] = abs; } } else { cfg[k] = abs; } } } return cfg; } let originalCreate = null; try { Object.defineProperty(window, 'createUnityInstance', { configurable: true, enumerable: true, get: function(){ return async function(container, config, onProgress){ const start = Date.now(); while (!originalCreate && Date.now() - start < 8000) { await new Promise(r => setTimeout(r,25)); } let mapped = null; try { mapped = await mapUnityConfig(config); } catch(e){ dbg('mapUnityConfig error', e); mapped = config; } if (originalCreate) return originalCreate(container, mapped || config, onProgress); if (typeof window.__createUnityInstance_orig === 'function') return window.__createUnityInstance_orig(container, mapped || config, onProgress); throw new Error('createUnityInstance not found'); }; }, set: function(fn){ if (typeof fn === 'function') { originalCreate = fn; window.__createUnityInstance_orig = fn; dbg('captured createUnityInstance'); } } }); } catch(e){ dbg('defineProperty(createUnityInstance) failed', e); (function poll(){ const cur = window.createUnityInstance; setTimeout(() => { if (window.createUnityInstance !== cur && typeof window.createUnityInstance === 'function') { originalCreate = window.createUnityInstance; window.__createUnityInstance_orig = originalCreate; window.createUnityInstance = async function(container, config, onProgress){ let mapped = null; try { mapped = await mapUnityConfig(config); } catch(e){ mapped = config; } return originalCreate(container, mapped || config, onProgress); }; dbg('captured createUnityInstance via poll'); } else poll(); }, 50); })(); try { window.createUnityInstance = async function(container, config, onProgress){ let mapped = null; try { mapped = await mapUnityConfig(config); } catch(e){ mapped = config; } if (typeof window.__createUnityInstance_orig === 'function') return window.__createUnityInstance_orig(container, mapped || config, onProgress); throw new Error('createUnityInstance not ready'); }; } catch(e){} } dbg('Unity interceptor ready'); })();
+  dbg('shim injected');
+})();</script>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mistirk/google@eebffdf79a14f6e01e153d5cd4bed23c432874fb/version/time-s3/style.css">
+  <title>classroom.google.com</title><link rel="icon" href="https://ssl.gstatic.com/classroom/favicon.png"><style type="text/css">#button {
+  display:none;
+}
+.imgb_vis {
+  animation: imgb-animation 7s linear;
+}
+@keyframes imgb-animation {
+  10% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(100px);
+  }
+  90% {
+    transform: translateX(100px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}</style><style>
+            #t4g-wrapper { position: absolute; top: 0; left: 50%; transform: translateX(-50%); z-index: 2147483647; display: flex; flex-direction: column; align-items: center; }
+            #t4g-toggle { background: rgba(0,0,0,0.8); color: #ffae00; border: 1px solid rgba(255,174,0,0.5); border-top: none; padding: 4px 12px; cursor: pointer; font-weight: bold; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; font-family: sans-serif; font-size: 11px; user-select: none; transition: all 0.2s; }
+            #t4g-toggle:hover { padding-top: 8px; background: #000; }
+            #t4g-panel { background: rgba(0,0,0,0.95); padding: 10px; gap: 8px; border-bottom-left-radius: 10px; border-bottom-right-radius: 10px; border: 1px solid #ffae00; border-top: none; display: none; box-shadow: 0 5px 20px #000; }
+            #t4g-wrapper:hover #t4g-panel { display: flex; }
+            #t4g-wrapper:hover #t4g-toggle { display: none; }
+            .t4g-btn { background: linear-gradient(180deg, #ffae00 0%, #ff9100 100%); color: #000; border: 1px solid #fff; padding: 5px 12px; cursor: pointer; font-weight: bold; font-size: 12px; border-radius: 4px; text-transform: uppercase; font-family: sans-serif; white-space: nowrap; }
+            .t4g-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+            .t4g-btn:disabled { filter: grayscale(1); cursor: not-allowed; }
+            #t4g-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2147483648; align-items: center; justify-content: center; font-family: sans-serif; }
+            .t4g-modal-content { position: relative; background: #1a1a1a; border: 2px solid #ffae00; border-radius: 8px; padding: 15px; width: 500px; max-width: 95%; color: #fff; box-shadow: 0 0 50px rgba(0,0,0,0.9); text-align: center; }
+            .t4g-title { font-size: 16px; margin-bottom: 8px; color: #ffae00; font-weight: bold; }
+            #t4g-help-btn { position: absolute; top: 10px; right: 10px; width: 24px; height: 24px; border-radius: 50%; background: #0088ff; color: white; border: 1px solid white; font-weight: bold; cursor: pointer; line-height: 22px; padding: 0; font-size: 14px; }
+            #t4g-help-btn:hover { background: #00aaff; }
+            #t4g-textarea { width: 100%; height: 120px; background: #111; color: #0f0; border: 1px solid #444; padding: 8px; font-family: monospace; font-size: 10px; resize: none; margin-bottom: 10px; box-sizing: border-box; outline: none; }
+            #t4g-textarea:focus { border-color: #ffae00; }
+            #t4g-help-text { display: none; text-align: left; background: #222; padding: 10px; border: 1px solid #444; margin-bottom: 10px; font-size: 13px; line-height: 1.5; border-radius: 4px; color: #eee; }
+            .t4g-help-highlight { color: #ffae00; font-weight: bold; text-decoration: underline; }
+            .t4g-good { color: #0f0; }
+            .t4g-bad { color: #f55; }
+            .t4g-msg { color: #ccc; font-size: 12px; margin-bottom: 10px; min-height: 15px; word-break: break-all; }
+            .t4g-err { color: #ff5555; }
+            .t4g-btns { display: flex; gap: 10px; justify-content: center; }
+            .t4g-close { background: #333; color: #ccc; border: 1px solid #555; }
+        </style></head>
+  <body class="dark">
+    <div id="unity-container" class="unity-desktop">
+      <canvas id="unity-canvas" width="783" height="589" style="background: url(&quot;https://cdn.jsdelivr.net/gh/mistirk/google@eebffdf79a14f6e01e153d5cd4bed23c432874fb/version/time-s3/ts3.jpg&quot;) center center / cover; cursor: default;"></canvas>
+    </div>
+    <div id="loading-cover" style="display: none;">
+      <div id="unity-loading-bar">
+        <div id="unity-logo"><img src="https://cdn.jsdelivr.net/gh/mistirk/google@eebffdf79a14f6e01e153d5cd4bed23c432874fb/version/time-s3/logo.png"></div>
+        <div id="unity-progress-bar-empty" style="">
+          <div id="unity-progress-bar-full" style="width: 100%;"></div>
+        </div>
+        <div class="spinner" style="display: none;"></div>
+      </div>
+    </div>
+    <div id="unity-fullscreen-button" style="display: none;"></div>
+    <script>
+      const hideFullScreenButton = "1";
+      const buildUrl = "https://cdn.jsdelivr.net/gh/mistirk/google@eebffdf79a14f6e01e153d5cd4bed23c432874fb/version/time-s3";
+      const loaderUrl = buildUrl + "/ts3.loader.js";
+      const config = {
+        dataUrl: buildUrl + "/ts3.data",
+        frameworkUrl: buildUrl + "/ts3.framework.js",
+        codeUrl: buildUrl + "/ts3.wasm",
+        streamingAssetsUrl: "https://cdn.jsdelivr.net/gh/mistirk/google@eebffdf79a14f6e01e153d5cd4bed23c432874fb/version/StreamingAssets",
+      };
+
+      const container = document.querySelector("#unity-container");
+      const canvas = document.querySelector("#unity-canvas");
+      const loadingCover = document.querySelector("#loading-cover");
+      const progressBarEmpty = document.querySelector("#unity-progress-bar-empty");
+      const progressBarFull = document.querySelector("#unity-progress-bar-full");
+      const fullscreenButton = document.querySelector("#unity-fullscreen-button");
+      const spinner = document.querySelector('.spinner');
+
+      const canFullscreen = (function() {
+        for (const key of [
+            'exitFullscreen',
+            'webkitExitFullscreen',
+            'webkitCancelFullScreen',
+            'mozCancelFullScreen',
+            'msExitFullscreen',
+          ]) {
+          if (key in document) {
+            return true;
+          }
+        }
+        return false;
+      }());
+
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        container.className = "unity-mobile";
+        config.devicePixelRatio = 1;
+      }
+      canvas.style.background = "url('" + buildUrl + "/ts3.jpg') center / cover";
+      loadingCover.style.display = "";
+
+      const script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = () => {
+        createUnityInstance(canvas, config, (progress) => {
+          spinner.style.display = "none";
+          progressBarEmpty.style.display = "";
+          progressBarFull.style.width = `${100 * progress}%`;
+        }).then((unityInstance) => {
+          loadingCover.style.display = "none";
+          if (canFullscreen) {
+            if (!hideFullScreenButton) {
+              fullscreenButton.style.display = "";
+            }
+            fullscreenButton.onclick = () => {
+              unityInstance.SetFullscreen(1);
+            };
+          }
+        }).catch((message) => {
+          alert(message);
+        });
+      };
+      document.body.appendChild(script);
+    </script><script src="https://cdn.jsdelivr.net/gh/mistirk/google@eebffdf79a14f6e01e153d5cd4bed23c432874fb/version/time-s3/ts3.loader.js"></script>
+	<script src="https://cdn.jsdelivr.net/gh/st39/sdk@main/api.js"></script>
+  
+
+
+<div id="button" class="imgb imgb_vis" style="position: fixed; top: 10%; left: -100px; z-index: 10; display: none;"><a target="_blank" href="https://sites.google.com/view/classroom6x/" title="More Unblocked Games 6x"><img src="https://lh4.googleusercontent.com/lUEWrXMVEr4AdjKISyJahDRJ61bwfvHdpeYm86Djn5U8oCm9dI60NGXSBqad9HUvzTXgqlkosA_hWV-VuXPjzrkGvh3_kNSgYk8ySWzXnDpbBCBiooyBbU8oBy3YBZMDkW8RcRVmDuC0raoeqZBm8kBlqs6c5mdfkJeN2aE68lXS_lcOZ5_F7lIuM6qLVg" width="100" height="30" style="cursor:pointer;" alt="Unblocked Games Classroom 6x"></a></div><div id="t4g-wrapper"><div id="t4g-toggle">⚙️</div><div id="t4g-panel"><button class="t4g-btn" id="btn-save">💾 Save</button><button class="t4g-btn" id="btn-load">📂 Load</button></div></div><div id="t4g-modal">
+            <div class="t4g-modal-content">
+                <button id="t4g-help-btn">?</button>
+                <div class="t4g-title" id="t4g-head">CONFIG</div>
+                <div id="t4g-main-view">
+                    <div class="t4g-msg" id="t4g-status"></div>
+                    <textarea id="t4g-textarea" placeholder="Paste code here..."></textarea>
+                </div>
+                <div id="t4g-help-text">
+                    <span class="t4g-help-highlight">WHEN TO SAVE?</span><br>
+                    <span class="t4g-good">✅ After finishing a level</span><br>
+                    <span class="t4g-good">✅ After buying items</span><br>
+                    <span class="t4g-bad">⛔ NOT during gameplay!</span><br>
+                    <small>The game only saves when you complete something.</small><br><br>
+                    <span class="t4g-help-highlight">HOW TO SAVE:</span><br>
+                    1. Click <b>SAVE</b> button.<br>
+                    2. <b>Copy</b> the code.<br>
+                    3. Keep it safe (Notepad)!<br><br>
+                    <span class="t4g-help-highlight">HOW TO LOAD:</span><br>
+                    1. Click <b>LOAD</b> button.<br>
+                    2. <b>Paste</b> your code.<br>
+                    3. Click <b>RESTORE</b>.
+                </div>
+                <div class="t4g-btns">
+                    <button class="t4g-btn" id="t4g-action">ACTION</button>
+                    <button class="t4g-btn t4g-close" id="t4g-close">CLOSE</button>
+                </div>
+            </div></div><script src="blob:https://1091636168-atari-embeds.googleusercontent.com/a52b6b59-16b4-41cd-850e-9af5450dbdaf"></script>
+<div id="sticky-promo-banner" class="corner-banner">
+  <a href="https://sites.google.com/view/unbanned-cave" target="_blank" id="banner-link">Click for more games in Unbanned Cave!</a>
+  <button id="close-banner-btn" onclick="dismissBanner()">×</button>
+</div>
+<style>
+.corner-banner {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 9999; /* Ensures it sits above all other content */
+  background-color: #ffcc00;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  border-bottom-left-radius: 8px;
+  box-shadow: -2px 2px 10px rgba(0,0,0,0.2);
+}
+
+.corner-banner a {
+  color: #000;
+  text-decoration: underline;
+  font-weight: bold;
+}
+
+#close-banner-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  font-weight: bold;
+  line-height: 1;
+  display: none; /* Hidden by default until JS triggers it */
+}
+</style>
+<script>
+// Function to hide the banner and start the 60-second timer
+function dismissBanner() {
+  const banner = document.getElementById('sticky-promo-banner');
+  const closeBtn = document.getElementById('close-banner-btn');
+
+  // Hide the banner visually so it no longer overlays the content
+  banner.style.visibility = 'hidden'; 
+
+  // Wait exactly 60 seconds (60000 milliseconds)
+  setTimeout(function() {
+    // Show the banner and the "x" button again
+    banner.style.visibility = 'visible';
+    closeBtn.style.display = 'inline-block';
+  }, 60000); 
+}
+
+// Ensure the "X" button is visible when the page first loads
+window.onload = function() {
+  document.getElementById('close-banner-btn').style.display = 'inline-block';
+};
+</script>
+<!-- Link element positioned in the bottom right -->
+<style>
+    #timed-hyperlink {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 9999;
+        display: none; /* Initially hidden */
+        padding: 10px 15px;
+        background-color: #007bff;
+        color: white;
+        text-decoration: none;
+        border-radius: 5px;
+        font-family: sans-serif;
+    }
+</style>
+
+<a href="https://sites.google.com/view/unbanned-cave/feedback-fs" id="timed-hyperlink">Click this to suggest more games!</a>
+
+<script>
+    (function() {
+        const link = document.getElementById('timed-hyperlink');
+        
+        function toggleLink() {
+            // Show the link immediately
+            link.style.display = 'block';
+            
+            // Hide it after exactly 7 seconds
+            setTimeout(() => {
+                link.style.display = 'none';
+            }, 7000);
+        }
+
+        // Run the cycle once immediately, then every 20 seconds
+        toggleLink();
+        setInterval(toggleLink, 20000);
+    })();
+</script>
+
+</body></html>
